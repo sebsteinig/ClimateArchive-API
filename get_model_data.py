@@ -20,6 +20,8 @@ def extract_annual_data_UM(model_ids, locations, user_variable):
         try:
             # Load the NetCDF file for the model (this is just an example path)
             ds = xr.open_dataset(f'{data_dir}/bridge_hadcm3/{model_id}/climate/{model_id}a.pdclann.nc', decode_times=False)
+            # convert longitude from -180 to 180 to 0 to 360
+            lon = (lon + 360) % 360
             # Extract data for the specified location
             data = ds[variable].sel(latitude=lat, longitude=lon, method='nearest').squeeze().values.tolist()
 
@@ -47,6 +49,10 @@ def extract_ts_data_cmip(model_id, location, user_variable):
     try:
         # Load the NetCDF file for the model (this is just an example path)
         ds = xr.open_dataset(f'{data_dir}/cmip6/{variable}_mon_mod_{model_id}_192_ave.ym.nc', decode_times=False)
+
+        # convert longitude from -180 to 180 to 0 to 360
+        lon = (lon + 360) % 360
+
         # Extract data for the specified location
         data = ds[variable].sel(lat=location[0], lon=location[1], method='nearest').squeeze().values.tolist()
 
