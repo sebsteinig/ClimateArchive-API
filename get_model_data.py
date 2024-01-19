@@ -1,6 +1,9 @@
 import xarray as xr
 
-data_dir = "/Volumes/WD_Elements/data/ClimateArchive/"
+# the actual model data (netcdf files) live outside the Docker container
+# when starting the container, we map the directory containing the model data
+# as a volume to '/data' inside the container
+data_dir = '/data'
 
 def extract_annual_data_UM(model_ids, locations, variable):
     results = []
