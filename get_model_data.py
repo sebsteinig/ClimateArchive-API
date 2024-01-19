@@ -4,8 +4,7 @@ import logging
 # the actual model data (netcdf files) live outside the Docker container
 # when starting the container, we map the directory containing the model data
 # as a volume to '/data' inside the container
-# data_dir = '/data'
-data_dir = '/Volumes/WD_Elements/data/ClimateArchive'
+data_dir = '/data'
 
 # define the mapping of user input variable names to dataset variable names
 variable_name_mapping_UM = {
