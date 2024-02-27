@@ -35,7 +35,7 @@ def extract_annual_data_UM(model_ids, locations, user_variable):
             results.append(data)
 
         except FileNotFoundError:
-            raise ValueError(f"File not found for model_id: {model_id}")
+            raise ValueError(f"File {data_dir}/bridge_hadcm3/{model_id}/climate/{model_id}a.pdclann.nc not found for model_id: {model_id}")
         except KeyError:
             raise ValueError(f"Variable '{variable}' not found in dataset for model_id: {model_id}")
         except Exception as e:
@@ -43,12 +43,20 @@ def extract_annual_data_UM(model_ids, locations, user_variable):
         
     return results
 
-def extract_ts_data_cmip(model_id, location, user_variable):
+def extract_ts_data_cmip(model_id, location, user_variable, frequency):
     # standard CMIP6 variable names
     variable = user_variable
+    if model_id == 'PI':
+        time = 'mean.1850-1900'
+    else:
+        time = 'runmean.2000-2100'
+
     try:
-        # Load the NetCDF file for the model (this is just an example path)
-        ds = xr.open_dataset(f'{data_dir}/cmip6/{variable}_mon_mod_{model_id}_192_ave.ym.nc', decode_times=False)
+        # Load the NetCDF file for the model
+        if (frequency == 'mm'):
+            ds = xr.open_dataset(f'{data_dir}/cmip6/{variable}_mon_mod_{model_id}_192_ave.{time}.mm.nc', decode_times=False)
+        elif (frequency == 'ym'):
+            ds = xr.open_dataset(f'{data_dir}/cmip6/{variable}_mon_mod_{model_id}_192_ave.{time}.ym.nc', decode_times=False)
 
         lat = location[0]
         lon = location[1]

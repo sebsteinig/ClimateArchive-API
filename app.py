@@ -48,7 +48,7 @@ def get_mean_data_bridge():
         return jsonify({'error': str(re)}), 500  # Internal server error
 
 #########################################################################################
-# CMIP6 annual mean scneario timeseries
+# CMIP6 monthly or annual mean scenario timeseries
 #########################################################################################
     
 @app.route('/get_ts_data_cmip', methods=['POST'])
@@ -56,31 +56,38 @@ def get_ts_data_cmip():
     data = request.json
 
     # check that the request contains the expected keys
-    if not all(key in data for key in ['model_id', 'location', 'variable']):
-        return jsonify({'error': 'Missing data. Expected keys are: model_id, location and variable'}), 400
+    if not all(key in data for key in ['model_id', 'location', 'variable', 'frequency']):
+        return jsonify({'error': 'Missing data. Expected keys are: model_id, location, variable and frequency/'}), 400
 
     model_id = data['model_id']
     location = data['location']
     variable = data['variable']
+    frequency = data['frequency']
 
     # check for correct API call
     # validate model_ids, locations and variable
     if not isinstance(model_id, str):
         return jsonify({'error': 'model_id should be a single string'}), 400
-    if not model_id in ['ssp126', 'ssp245', 'ssp370', 'ssp585']:
-        return jsonify({'error': f'Unknown model_id: {model_id}. Currently supported model_ids are: ssp126, ssp245, ssp370 and ssp585'}), 400
     if not isinstance(location, list) or not len(location) == 2:
         return jsonify({'error': 'location should be a list of length 2'}), 400
     if not isinstance(variable, str):
         return jsonify({'error': 'variable should be a string'}), 400
-    
+    if not isinstance(frequency, str):
+        return jsonify({'error': 'frequency should be a string'}), 400
+
+    # validate that known model ID was requested
+    if model_id not in ['ssp126', 'ssp245', 'ssp370', 'ssp585', 'PI']:
+        return jsonify({'error': f'Unknown model_id: {model_id}. Currently supported model_ids are: ssp126, ssp245, ssp370 and ssp585'}), 400    
     # validate that known variable was requested
     if variable not in ['tas', 'pr']:
         return jsonify({'error': f'Unknown variable: {variable}. Currently supported variables are: tas and pr'}), 400
+    # validate that known time frequency was requested
+    if frequency not in ['mm', 'ym']:
+        return jsonify({'error': f'Unknown time frequency: {frequency}. Currently supported samplings are: mm and ym'}), 400
 
     # try to extract the data
     try:
-        results = extract_ts_data_cmip(model_id, location, variable)
+        results = extract_ts_data_cmip(model_id, location, variable, frequency)
         return jsonify(results)
     except ValueError as ve:
         return jsonify({'error': str(ve)}), 400  # Bad request
