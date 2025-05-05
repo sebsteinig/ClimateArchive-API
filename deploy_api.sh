@@ -14,7 +14,7 @@ services:
   climate-api:
     image: ${IMAGE_NAME}
     container_name: climate-archive-api
-    restart: unless-stopped
+    restart: always
     ports:
       - "4000:4000"
     volumes:
@@ -35,7 +35,7 @@ services:
         max_attempts: 3
         window: 120s
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4000/health", "||", "exit", "1"]
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -52,7 +52,7 @@ sudo docker pull ${IMAGE_NAME}
 
 echo "Starting the container..."
 sudo docker run -d --name climate-archive-api \
-  --restart unless-stopped \
+  --restart always \
   -p 4000:4000 \
   -v "${LOCAL_DATA_DIR}:/data" \
   -e NETCDF_CACHE_SIZE=200 \
