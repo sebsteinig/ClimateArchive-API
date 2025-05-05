@@ -1,14 +1,93 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, make_response
+from flask_cors import CORS
+import os
+import logging
+import time
+import psutil
+import json
+
 app = Flask(__name__)
 
-from get_model_data import extract_annual_data_UM, extract_ts_data_cmip
+# Import after app initialization
+from get_model_data import extract_annual_data_UM, extract_ts_data_cmip, logger
+
+# Memory monitoring
+def check_memory_usage():
+    # Get memory usage details
+    memory = psutil.virtual_memory()
+    memory_percent = memory.percent
+    memory_used_mb = memory.used / (1024 * 1024)  # Convert to MB
+    memory_total_mb = memory.total / (1024 * 1024)  # Convert to MB
+    memory_available_mb = memory.available / (1024 * 1024)  # Convert to MB
+    
+    return {
+        'percent': memory_percent,
+        'used_mb': round(memory_used_mb, 2),
+        'total_mb': round(memory_total_mb, 2),
+        'available_mb': round(memory_available_mb, 2)
+    }
+
+# Configure request logging
+@app.before_request
+def before_request():
+    request.start_time = time.time()
+    
+    # Check memory usage before processing request
+    memory_info = check_memory_usage()
+    
+    # Log simplified request information (path and method only)
+    logger.info(f"Request received: {request.method} {request.path}")
+    logger.info(f"Memory usage before request: {memory_info['percent']}% (Used: {memory_info['used_mb']} MB, Available: {memory_info['available_mb']} MB of {memory_info['total_mb']} MB total)")
+    
+    # If memory usage is critical, return a 503 Service Unavailable
+    if memory_info['percent'] > 95:  # 95% threshold
+        logger.error(f"Critical memory usage: {memory_info['percent']}% (Used: {memory_info['used_mb']} MB, Available: {memory_info['available_mb']} MB) - Rejecting request")
+        return jsonify({
+            'error': 'Server is under heavy load, please try again later',
+            'status': 'overloaded'
+        }), 503
+
+@app.after_request
+def after_request(response):
+    if hasattr(request, 'start_time'):
+        duration = time.time() - request.start_time
+        memory_info = check_memory_usage()
+        logger.info(f"Request to {request.path} completed in {duration:.2f}s - Status: {response.status_code}")
+        logger.info(f"Memory usage after request: {memory_info['percent']}% (Used: {memory_info['used_mb']} MB, Available: {memory_info['available_mb']} MB)")
+    
+    # Let Flask-CORS handle the CORS headers - don't add them manually
+    # as that can cause conflicts
+    return response
+
+# Health check endpoint with memory stats
+@app.route('/health', methods=['GET'])
+def health_check():
+    memory_info = check_memory_usage()
+    status = 'healthy' if memory_info['percent'] < 80 else 'degraded'
+    
+    return jsonify({
+        'status': status,
+        'memory': {
+            'percent': memory_info['percent'],
+            'used_mb': memory_info['used_mb'],
+            'total_mb': memory_info['total_mb'],
+            'available_mb': memory_info['available_mb']
+        },
+        'timestamp': time.time(),
+        'api_version': '1.0.0'
+    })
 
 #########################################################################################
 # BRIDGE annual mean climatology
 #########################################################################################
 
-@app.route('/get_mean_data_bridge', methods=['POST'])
+@app.route('/get_mean_data_bridge', methods=['POST', 'OPTIONS'])
 def get_mean_data_bridge():
+    if request.method == 'OPTIONS':
+        response = make_response()
+        response.status_code = 200
+        return response
+    
     data = request.json
 
     # check that the request contains the expected keys
@@ -43,16 +122,23 @@ def get_mean_data_bridge():
         results = extract_annual_data_UM(model_ids, locations, variable)
         return jsonify(results)
     except ValueError as ve:
+        logger.warning(f"Bad request: {str(ve)}")
         return jsonify({'error': str(ve)}), 400  # Bad request
     except RuntimeError as re:
+        logger.error(f"Server error: {str(re)}")
         return jsonify({'error': str(re)}), 500  # Internal server error
 
 #########################################################################################
 # CMIP6 monthly or annual mean scenario timeseries
 #########################################################################################
     
-@app.route('/get_ts_data_cmip', methods=['POST'])
+@app.route('/get_ts_data_cmip', methods=['POST', 'OPTIONS'])
 def get_ts_data_cmip():
+    if request.method == 'OPTIONS':
+        response = make_response()
+        response.status_code = 200
+        return response
+    
     data = request.json
 
     # check that the request contains the expected keys
@@ -90,9 +176,27 @@ def get_ts_data_cmip():
         results = extract_ts_data_cmip(model_id, location, variable, frequency)
         return jsonify(results)
     except ValueError as ve:
+        logger.warning(f"Bad request: {str(ve)}")
         return jsonify({'error': str(ve)}), 400  # Bad request
     except RuntimeError as re:
+        logger.error(f"Server error: {str(re)}")
         return jsonify({'error': str(re)}), 500  # Internal server error
 
+# Test endpoint to simulate crashes for health check testing
+@app.route('/test/crash', methods=['GET'])
+def test_crash():
+    """This endpoint causes the application to crash for testing restart capabilities."""
+    logger.warning("Intentional crash triggered via /test/crash endpoint")
+    os._exit(1)  # Force immediate exit
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=4000, debug=False)
+    host = os.environ.get('API_HOST', '0.0.0.0')
+    port = int(os.environ.get('API_PORT', 4000))
+    debug = os.environ.get('API_DEBUG', 'False').lower() == 'true'
+    
+    # Log system resources at startup
+    memory_info = check_memory_usage()
+    logger.info(f"Starting ClimateArchive API on {host}:{port} (debug={debug})")
+    logger.info(f"Initial memory usage: {memory_info['percent']}% (Used: {memory_info['used_mb']} MB, Available: {memory_info['available_mb']} MB of {memory_info['total_mb']} MB total)")
+    
+    app.run(host=host, port=port, debug=debug)
