@@ -7,18 +7,10 @@ import psutil
 import json
 
 app = Flask(__name__)
-# Configure CORS with specific settings for your domain
-CORS(app, resources={
-    r"/*": {
-        "origins": ["https://climatearchive.org", "http://localhost:*"],
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"],
-        "expose_headers": ["Content-Type", "X-Total-Count"],
-        "supports_credentials": False,
-        "max_age": 86400  # Cache preflight request for 1 day
-    }
-})
+# Configure CORS with simpler settings
+CORS(app)
 
+# Import after app initialization
 from get_model_data import extract_annual_data_UM, extract_ts_data_cmip, logger
 
 # Memory monitoring
@@ -88,11 +80,8 @@ def after_request(response):
         logger.info(f"Request to {request.path} completed in {duration:.2f}s - Status: {response.status_code}")
         logger.info(f"Memory usage after request: {memory_info['percent']}% (Used: {memory_info['used_mb']} MB, Available: {memory_info['available_mb']} MB)")
     
-    # Ensure CORS headers are properly set for all responses
-    response.headers.add('Access-Control-Allow-Origin', request.headers.get('Origin', '*'))
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-    response.headers.add('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-    
+    # Let Flask-CORS handle the CORS headers - don't add them manually
+    # as that can cause conflicts
     return response
 
 # Health check endpoint with memory stats
