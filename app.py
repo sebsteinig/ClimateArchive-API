@@ -7,8 +7,6 @@ import psutil
 import json
 
 app = Flask(__name__)
-# Configure CORS with simpler settings
-CORS(app)
 
 # Import after app initialization
 from get_model_data import extract_annual_data_UM, extract_ts_data_cmip, logger
