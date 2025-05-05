@@ -20,8 +20,8 @@ services:
     volumes:
       - ${LOCAL_DATA_DIR}:/data
     environment:
-      - NETCDF_CACHE_SIZE=50
-      - NETCDF_CACHE_TTL=3600
+      - NETCDF_CACHE_SIZE=200
+      - NETCDF_CACHE_TTL=2592000
       - API_DEBUG=false
     deploy:
       resources:
@@ -29,8 +29,13 @@ services:
           memory: 6G
         reservations:
           memory: 2G
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 3
+        window: 120s
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health", "||", "exit", "1"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -50,8 +55,8 @@ sudo docker run -d --name climate-archive-api \
   --restart unless-stopped \
   -p 4000:4000 \
   -v "${LOCAL_DATA_DIR}:/data" \
-  -e NETCDF_CACHE_SIZE=50 \
-  -e NETCDF_CACHE_TTL=3600 \
+  -e NETCDF_CACHE_SIZE=200 \
+  -e NETCDF_CACHE_TTL=2592000 \
   -e API_DEBUG=false \
   --memory="6g" \
   --memory-reservation="2g" \
@@ -67,3 +72,5 @@ rm docker-compose.temp.yml
 
 echo "Deployment complete. Container is running in the background."
 echo "To view logs: sudo docker logs -f climate-archive-api"
+echo "To check container health: sudo docker inspect --format='{{.State.Health.Status}}' climate-archive-api"
+echo "To see health check details: sudo docker inspect --format='{{json .State.Health}}' climate-archive-api | jq"

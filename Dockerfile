@@ -7,8 +7,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONFAULTHANDLER=1 \
     PIP_NO_CACHE_DIR=off \
     PIP_DISABLE_PIP_VERSION_CHECK=on \
-    NETCDF_CACHE_SIZE=20 \
-    NETCDF_CACHE_TTL=3600
+    NETCDF_CACHE_SIZE=200 \
+    NETCDF_CACHE_TTL=2592000
 
 # Set the working directory in the container
 WORKDIR /app
@@ -17,11 +17,14 @@ WORKDIR /app
 COPY requirements.txt /app/
 
 # Install any needed packages specified in requirements.txt
-RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev && \
-    pip install --no-cache-dir -r requirements.txt && \
-    apt-get purge -y --auto-remove gcc libc6-dev && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libc6-dev \
+    curl \
+    && pip install --no-cache-dir -r requirements.txt \
+    && apt-get purge -y --auto-remove gcc libc6-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy the application code
 COPY . /app/
@@ -40,7 +43,7 @@ EXPOSE 4000
 ENV MEMORY_LIMIT=1g
 
 # Healthcheck to ensure the API is responding
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:4000/health || exit 1
 
 # Run app.py when the container launches

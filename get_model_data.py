@@ -19,8 +19,8 @@ logger = logging.getLogger('climate_api')
 
 # Define cache for netCDF files
 # This dramatically reduces file I/O for frequently accessed files
-CACHE_SIZE = int(os.environ.get('NETCDF_CACHE_SIZE', 50))  # Number of files to cache
-CACHE_TTL = int(os.environ.get('NETCDF_CACHE_TTL', 3600))  # Time in seconds to keep files in cache (1 hour default)
+CACHE_SIZE = int(os.environ.get('NETCDF_CACHE_SIZE', 200))  # Increased from 50 to 200 files
+CACHE_TTL = int(os.environ.get('NETCDF_CACHE_TTL', 2592000))  # Increased from 3600s (1 hour) to 2592000s (30 days)
 
 # Cache for opened netCDF datasets
 file_cache = {}
