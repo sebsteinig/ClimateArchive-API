@@ -182,6 +182,13 @@ def get_ts_data_cmip():
         logger.error(f"Server error: {str(re)}")
         return jsonify({'error': str(re)}), 500  # Internal server error
 
+# Test endpoint to simulate crashes for health check testing
+@app.route('/test/crash', methods=['GET'])
+def test_crash():
+    """This endpoint causes the application to crash for testing restart capabilities."""
+    logger.warning("Intentional crash triggered via /test/crash endpoint")
+    os._exit(1)  # Force immediate exit
+
 if __name__ == '__main__':
     host = os.environ.get('API_HOST', '0.0.0.0')
     port = int(os.environ.get('API_PORT', 4000))
