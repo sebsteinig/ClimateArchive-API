@@ -4,6 +4,7 @@ import os
 import logging
 import time
 import psutil
+import json
 
 app = Flask(__name__)
 # Enable CORS for all routes
@@ -13,9 +14,41 @@ from get_model_data import extract_annual_data_UM, extract_ts_data_cmip, logger
 
 # Memory monitoring
 def check_memory_usage():
-    # Get current memory usage percentage
-    memory_percent = psutil.virtual_memory().percent
-    return memory_percent
+    # Get memory usage details
+    memory = psutil.virtual_memory()
+    memory_percent = memory.percent
+    memory_used_mb = memory.used / (1024 * 1024)  # Convert to MB
+    memory_total_mb = memory.total / (1024 * 1024)  # Convert to MB
+    memory_available_mb = memory.available / (1024 * 1024)  # Convert to MB
+    
+    return {
+        'percent': memory_percent,
+        'used_mb': round(memory_used_mb, 2),
+        'total_mb': round(memory_total_mb, 2),
+        'available_mb': round(memory_available_mb, 2)
+    }
+
+# Helper function to safely dump request data for logging
+def get_request_data_for_logging(req):
+    log_data = {
+        'path': req.path,
+        'method': req.method,
+        'headers': dict(req.headers),
+        'remote_addr': req.remote_addr,
+    }
+    
+    # Try to include JSON body if present
+    if req.is_json and req.get_data():
+        try:
+            log_data['json_body'] = req.json
+        except:
+            log_data['json_body'] = 'Error parsing JSON'
+    
+    # Remove sensitive headers if any
+    if 'Authorization' in log_data['headers']:
+        log_data['headers']['Authorization'] = 'REDACTED'
+    
+    return log_data
 
 # Configure request logging
 @app.before_request
@@ -23,12 +56,16 @@ def before_request():
     request.start_time = time.time()
     
     # Check memory usage before processing request
-    memory_percent = check_memory_usage()
-    logger.info(f"Memory usage before request: {memory_percent}%")
+    memory_info = check_memory_usage()
+    
+    # Log detailed request information
+    request_data = get_request_data_for_logging(request)
+    logger.info(f"Request received: {json.dumps(request_data, default=str)}")
+    logger.info(f"Memory usage before request: {memory_info['percent']}% (Used: {memory_info['used_mb']} MB, Available: {memory_info['available_mb']} MB of {memory_info['total_mb']} MB total)")
     
     # If memory usage is critical, return a 503 Service Unavailable
-    if memory_percent > 90:  # 90% threshold
-        logger.error(f"Critical memory usage: {memory_percent}% - Rejecting request")
+    if memory_info['percent'] > 95:  # 95% threshold
+        logger.error(f"Critical memory usage: {memory_info['percent']}% (Used: {memory_info['used_mb']} MB, Available: {memory_info['available_mb']} MB) - Rejecting request")
         return jsonify({
             'error': 'Server is under heavy load, please try again later',
             'status': 'overloaded'
@@ -38,18 +75,25 @@ def before_request():
 def after_request(response):
     if hasattr(request, 'start_time'):
         duration = time.time() - request.start_time
+        memory_info = check_memory_usage()
         logger.info(f"Request to {request.path} completed in {duration:.2f}s - Status: {response.status_code}")
+        logger.info(f"Memory usage after request: {memory_info['percent']}% (Used: {memory_info['used_mb']} MB, Available: {memory_info['available_mb']} MB)")
     return response
 
 # Health check endpoint with memory stats
 @app.route('/health', methods=['GET'])
 def health_check():
-    memory_percent = check_memory_usage()
-    status = 'healthy' if memory_percent < 80 else 'degraded'
+    memory_info = check_memory_usage()
+    status = 'healthy' if memory_info['percent'] < 80 else 'degraded'
     
     return jsonify({
         'status': status,
-        'memory_usage_percent': memory_percent,
+        'memory': {
+            'percent': memory_info['percent'],
+            'used_mb': memory_info['used_mb'],
+            'total_mb': memory_info['total_mb'],
+            'available_mb': memory_info['available_mb']
+        },
         'timestamp': time.time(),
         'api_version': '1.0.0'
     })
@@ -161,8 +205,8 @@ if __name__ == '__main__':
     debug = os.environ.get('API_DEBUG', 'False').lower() == 'true'
     
     # Log system resources at startup
-    memory_percent = check_memory_usage()
+    memory_info = check_memory_usage()
     logger.info(f"Starting ClimateArchive API on {host}:{port} (debug={debug})")
-    logger.info(f"Initial memory usage: {memory_percent}%")
+    logger.info(f"Initial memory usage: {memory_info['percent']}% (Used: {memory_info['used_mb']} MB, Available: {memory_info['available_mb']} MB of {memory_info['total_mb']} MB total)")
     
     app.run(host=host, port=port, debug=debug)
