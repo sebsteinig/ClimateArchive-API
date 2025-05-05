@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  climate-api:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    image: climate-archive-api:latest
+    container_name: climate-archive-api
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    volumes:
+      - /path/to/data:/data  # Replace with actual path to your climate data
+    environment:
+      - NETCDF_CACHE_SIZE=50
+      - NETCDF_CACHE_TTL=3600
+      - API_DEBUG=false
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+        reservations:
+          memory: 2G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
