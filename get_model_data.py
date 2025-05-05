@@ -112,17 +112,17 @@ def extract_ts_data_cmip(model_id, location, user_variable, frequency):
     # standard CMIP6 variable names
     variable = user_variable
     if model_id == 'PI':
-        time = 'mean.1850-1900'
+        time_period = 'mean.1850-1900'
     else:
-        time = 'runmean.2000-2100'
+        time_period = 'runmean.2000-2100'
 
     start_time = time.time()
     try:
         # Determine file path based on frequency
         if (frequency == 'mm'):
-            file_path = f'{data_dir}/cmip6/{variable}_mon_mod_{model_id}_192_ave.{time}.mm.nc'
+            file_path = f'{data_dir}/cmip6/{variable}_mon_mod_{model_id}_192_ave.{time_period}.mm.nc'
         elif (frequency == 'ym'):
-            file_path = f'{data_dir}/cmip6/{variable}_mon_mod_{model_id}_192_ave.{time}.ym.nc'
+            file_path = f'{data_dir}/cmip6/{variable}_mon_mod_{model_id}_192_ave.{time_period}.ym.nc'
         
         # Use cached dataset
         ds = get_cached_dataset(file_path)
