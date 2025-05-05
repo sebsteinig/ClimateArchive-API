@@ -7,6 +7,8 @@ import psutil
 import json
 
 app = Flask(__name__)
+# Configure CORS with simpler settings
+CORS(app)
 
 # Import after app initialization
 from get_model_data import extract_annual_data_UM, extract_ts_data_cmip, logger
@@ -27,28 +29,6 @@ def check_memory_usage():
         'available_mb': round(memory_available_mb, 2)
     }
 
-# Helper function to safely dump request data for logging
-def get_request_data_for_logging(req):
-    log_data = {
-        'path': req.path,
-        'method': req.method,
-        'headers': dict(req.headers),
-        'remote_addr': req.remote_addr,
-    }
-    
-    # Try to include JSON body if present
-    if req.is_json and req.get_data():
-        try:
-            log_data['json_body'] = req.json
-        except:
-            log_data['json_body'] = 'Error parsing JSON'
-    
-    # Remove sensitive headers if any
-    if 'Authorization' in log_data['headers']:
-        log_data['headers']['Authorization'] = 'REDACTED'
-    
-    return log_data
-
 # Configure request logging
 @app.before_request
 def before_request():
@@ -57,9 +37,8 @@ def before_request():
     # Check memory usage before processing request
     memory_info = check_memory_usage()
     
-    # Log detailed request information
-    request_data = get_request_data_for_logging(request)
-    logger.info(f"Request received: {json.dumps(request_data, default=str)}")
+    # Log simplified request information (path and method only)
+    logger.info(f"Request received: {request.method} {request.path}")
     logger.info(f"Memory usage before request: {memory_info['percent']}% (Used: {memory_info['used_mb']} MB, Available: {memory_info['available_mb']} MB of {memory_info['total_mb']} MB total)")
     
     # If memory usage is critical, return a 503 Service Unavailable
